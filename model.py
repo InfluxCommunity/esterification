@@ -1,37 +1,68 @@
 import numpy as np
-from scipy.integrate import solve_ivp
+from scipy.integrate import odeint
 import matplotlib.pyplot as plt
 
-def model(t, y, V, k, F):
-    C_A, C_B = y
-    r = k * C_A
-    dC_A_dt = F/V * (1.1 - C_A) - r
-    dC_B_dt = r - F/V * C_B  # Assuming B is also carried out by the flow at the same rate
-    return [dC_A_dt, dC_B_dt]
+# Constants
+k = 0.2  # reaction rate constant, 1/s
+V = 10.0  # volume of reactor, m^3
+F = 0.5  # volumetric flow rate, m^3/s
+CA0 = 1.1  # initial concentration of A, mol/m^3
+CB0 = 0.0  # initial concentration of B, mol/m^3
+T0 = 298.0  # initial temperature, K
+T_in = 298.0  # inlet temperature, K
+UA = 200.0  # overall heat transfer coefficient, J/s-K
+Cp = 4.0  # heat capacity, J/mol-K
+deltaH = -50000.0  # heat of reaction, J/mol
+rho = 1000.0  # density, kg/m^3
+Cp_rho = Cp * rho
 
-# Parameters
-V = 10      # Volume in m^3
-k = 0.2     # Reaction rate constant in 1/s
-F = 0.5     # Volumetric flow rate in m^3/s
+# Define the system of ODEs
+def odes(y, t):
+    CA, CB, T = y
+    r = k * CA
+    dCAdt = (CA0 - CA) * F / V - r
+    dCBdt = r - CB * F / V
+    dTdt = ((T_in - T) * F * Cp_rho / V - UA * (T - T_in) / V + (-deltaH * r)) / (Cp_rho / V)
+    return [dCAdt, dCBdt, dTdt]
 
-# Initial Conditions
-C_A0 = 1.1  # Initial concentration of A in mol/m^3
-C_B0 = 0.0  # Initial concentration of B in mol/m^3
+# Initial conditions
+y0 = [CA0, CB0, T0]
 
-# Time span for the simulation
-t_span = (0, 30)  # Time from 0 to 30 seconds
-t_eval = np.linspace(t_span[0], t_span[1], 300)
+# Time points
+t = np.linspace(0, 30, 500)
 
-# Solve the system of ODEs
-result = solve_ivp(model, t_span, [C_A0, C_B0], args=(V, k, F), t_eval=t_eval, method='RK45')
+# Solve ODEs
+solution = odeint(odes, y0, t)
+CA = solution[:, 0]
+CB = solution[:, 1]
+T = solution[:, 2]
 
-# Plotting
-plt.figure(figsize=(10, 5))
-plt.plot(result.t, result.y[0], label='Concentration of A (mol/m³)')
-plt.plot(result.t, result.y[1], label='Concentration of B (mol/m³)')
-plt.title('Concentration of A and B in a CSTR')
-plt.xlabel('Time (s)')
-plt.ylabel('Concentration (mol/m³)')
+# Plot concentration of A
+plt.figure()
+plt.plot(t, CA, label='CA')
+plt.xlabel('Time, s')
+plt.ylabel('Concentration of A, mol/m^3')
+plt.title('Concentration of A over Time')
 plt.legend()
-plt.grid(True)
+plt.grid()
+plt.show()
+
+# Plot concentration of B
+plt.figure()
+plt.plot(t, CB, label='CB')
+plt.xlabel('Time, s')
+plt.ylabel('Concentration of B, mol/m^3')
+plt.title('Concentration of B over Time')
+plt.legend()
+plt.grid()
+plt.show()
+
+# Plot temperature
+plt.figure()
+plt.plot(t, T, label='Temperature')
+plt.xlabel('Time, s')
+plt.ylabel('Temperature, K')
+plt.title('Temperature over Time')
+plt.legend()
+plt.grid()
 plt.show()
